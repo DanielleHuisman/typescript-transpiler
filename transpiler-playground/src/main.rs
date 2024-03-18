@@ -3,9 +3,9 @@ use std::fs;
 use std::path::Path;
 
 use quote::ToTokens;
-use swc_common::sync::Lrc;
 use swc_common::{
     errors::{ColorConfig, Handler},
+    sync::Lrc,
     SourceMap,
 };
 use swc_ecma_parser::{lexer::Lexer, Capturing, Parser, StringInput, Syntax, TsConfig};

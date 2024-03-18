@@ -1,5 +1,6 @@
 [package]
 name = "typescript-transpiler-cli"
+description = "TypeScript to Rust transpiler."
 
 authors.workspace = true
 edition.workspace = true
@@ -8,3 +9,5 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+clap = { version = "4.5.3", features = ["derive"] }
+typescript-transpiler = { path = "../transpiler" }
