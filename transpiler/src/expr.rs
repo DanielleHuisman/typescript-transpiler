@@ -90,18 +90,57 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
 }
 
 pub fn transpile_call(call: swc::CallExpr) -> Expr {
-    Expr::Call(ExprCall {
-        attrs: vec![],
-        func: todo!(),
-        paren_token: token::Paren(dummy_span()),
-        args: Punctuated::from_iter(call.args.into_iter().map(|arg| {
+    let args: Punctuated<Expr, token::Comma> =
+        Punctuated::from_iter(call.args.into_iter().map(|arg| {
             if arg.spread.is_some() {
                 todo!()
             } else {
                 transpile_expr(*arg.expr)
             }
-        })),
-    })
+        }));
+
+    if call.callee.is_super_() {
+        todo!("call super")
+    } else if call.callee.is_import() {
+        todo!("call import")
+    } else if call.callee.is_expr() {
+        let expr = call.callee.expr().expect("Callee is Expr.");
+
+        if expr.is_member() {
+            let member = expr.member().expect("Expr is Member.");
+
+            if member.obj.is_ident() && member.prop.is_ident() {
+                Expr::MethodCall(ExprMethodCall {
+                    attrs: vec![],
+                    receiver: Box::new(Expr::Path(ExprPath {
+                        attrs: vec![],
+                        qself: None,
+                        path: Path::from(PathSegment {
+                            ident: Ident::new(
+                                member.obj.ident().expect("Expr is Ident.").sym.as_str(),
+                                dummy_span(),
+                            ),
+                            arguments: PathArguments::None,
+                        }),
+                    })),
+                    dot_token: token::Dot(dummy_span()),
+                    method: Ident::new(
+                        member.prop.ident().expect("Prop is Ident.").sym.as_str(),
+                        dummy_span(),
+                    ),
+                    turbofish: None,
+                    paren_token: token::Paren(dummy_span()),
+                    args,
+                })
+            } else {
+                todo!("call expr member non-ident-prop/non-ident-prop")
+            }
+        } else {
+            todo!("call expr non-member")
+        }
+    } else {
+        unreachable!("Unknown callee kind.")
+    }
 }
 
 pub fn transpile_lit(lit: swc::Lit) -> Expr {
