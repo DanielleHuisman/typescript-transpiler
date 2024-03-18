@@ -1,9 +1,9 @@
-use swc_ecma_ast::{CallExpr, Expr, Lit};
-use syn::{punctuated::Punctuated, token, ExprCall, ExprParen};
+use swc_ecma_ast as swc;
+use syn::{punctuated::Punctuated, *};
 
 use crate::util::dummy_span;
 
-pub fn transpile_expr(expr: Expr) -> syn::Expr {
+pub fn transpile_expr(expr: swc::Expr) -> Expr {
     if expr.is_this() {
         todo!("expr this")
     } else if expr.is_array() {
@@ -51,7 +51,7 @@ pub fn transpile_expr(expr: Expr) -> syn::Expr {
     } else if expr.is_await_expr() {
         todo!("expr await")
     } else if expr.is_paren() {
-        syn::Expr::Paren(ExprParen {
+        Expr::Paren(ExprParen {
             attrs: vec![],
             paren_token: token::Paren(dummy_span()),
             expr: Box::new(transpile_expr(*expr.paren().expect("Expr is Paren.").expr)),
@@ -89,33 +89,38 @@ pub fn transpile_expr(expr: Expr) -> syn::Expr {
     }
 }
 
-pub fn transpile_call(call: CallExpr) -> syn::Expr {
-    // syn::Expr::Call(ExprCall {
-    //     attrs: vec![],
-    //     func: Box::new(),
-    //     paren_token: token::Paren(dummy_span()),
-    //     args: Punctuated::new()
-    // })
-    todo!()
+pub fn transpile_call(call: swc::CallExpr) -> Expr {
+    Expr::Call(ExprCall {
+        attrs: vec![],
+        func: todo!(),
+        paren_token: token::Paren(dummy_span()),
+        args: Punctuated::from_iter(call.args.into_iter().map(|arg| {
+            if arg.spread.is_some() {
+                todo!()
+            } else {
+                transpile_expr(*arg.expr)
+            }
+        })),
+    })
 }
 
-pub fn transpile_lit(lit: Lit) -> syn::Expr {
+pub fn transpile_lit(lit: swc::Lit) -> Expr {
     match lit {
-        Lit::Str(str) => syn::Expr::Lit(syn::ExprLit {
+        swc::Lit::Str(str) => Expr::Lit(ExprLit {
             attrs: vec![],
-            lit: syn::Lit::Str(syn::LitStr::new(str.value.as_str(), dummy_span())),
+            lit: Lit::Str(LitStr::new(str.value.as_str(), dummy_span())),
         }),
-        Lit::Bool(bool) => syn::Expr::Lit(syn::ExprLit {
+        swc::Lit::Bool(bool) => Expr::Lit(ExprLit {
             attrs: vec![],
-            lit: syn::Lit::Bool(syn::LitBool::new(bool.value, dummy_span())),
+            lit: Lit::Bool(LitBool::new(bool.value, dummy_span())),
         }),
-        Lit::Null(_) => todo!(),
-        Lit::Num(num) => syn::Expr::Lit(syn::ExprLit {
+        swc::Lit::Null(_) => todo!(),
+        swc::Lit::Num(num) => Expr::Lit(ExprLit {
             attrs: vec![],
-            lit: syn::Lit::Float(syn::LitFloat::new(&num.value.to_string(), dummy_span())),
+            lit: Lit::Float(LitFloat::new(&num.value.to_string(), dummy_span())),
         }),
-        Lit::BigInt(_) => todo!(),
-        Lit::Regex(_) => todo!(),
-        Lit::JSXText(_) => todo!(),
+        swc::Lit::BigInt(_) => todo!(),
+        swc::Lit::Regex(_) => todo!(),
+        swc::Lit::JSXText(_) => todo!(),
     }
 }

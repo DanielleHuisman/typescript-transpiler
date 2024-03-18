@@ -1,9 +1,9 @@
-use swc_ecma_ast::{Module, ModuleItem, Stmt};
-use syn::{File, Item};
+use swc_ecma_ast as swc;
+use syn::{File, Item, Stmt};
 
 use crate::stmt::transpile_stmt_only;
 
-pub fn transpile_module(module: Module) -> File {
+pub fn transpile_module(module: swc::Module) -> File {
     File {
         shebang: None,
         attrs: vec![],
@@ -15,7 +15,7 @@ pub fn transpile_module(module: Module) -> File {
     }
 }
 
-pub fn transpile_module_item(module_item: ModuleItem) -> Vec<Item> {
+pub fn transpile_module_item(module_item: swc::ModuleItem) -> Vec<Item> {
     if module_item.is_module_decl() {
         todo!("module item module decl")
     } else if module_item.is_stmt() {
@@ -25,14 +25,14 @@ pub fn transpile_module_item(module_item: ModuleItem) -> Vec<Item> {
     }
 }
 
-pub fn transpile_stmt_to_items(stmt: Stmt) -> Vec<Item> {
+pub fn transpile_stmt_to_items(stmt: swc::Stmt) -> Vec<Item> {
     let stmt = transpile_stmt_only(stmt);
 
     // TODO: wrap others in main func?
     match stmt {
-        syn::Stmt::Local(_) => todo!("local"),
-        syn::Stmt::Item(item) => vec![item],
-        syn::Stmt::Expr(_, _) => todo!("expr"),
-        syn::Stmt::Macro(_) => todo!("macro"),
+        Stmt::Local(_) => todo!("local"),
+        Stmt::Item(item) => vec![item],
+        Stmt::Expr(_, _) => todo!("expr"),
+        Stmt::Macro(_) => todo!("macro"),
     }
 }
