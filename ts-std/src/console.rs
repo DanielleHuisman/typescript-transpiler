@@ -6,4 +6,4 @@ impl Console {
     }
 }
 
-const console: Console = Console {};
+pub const console: Console = Console {};

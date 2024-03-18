@@ -4,6 +4,8 @@ use syn::{File, Item, Stmt};
 use crate::stmt::transpile_stmt_only;
 
 pub fn transpile_module(module: swc::Module) -> File {
+    // TODO: add `use ts_std::*;` to top of file
+
     File {
         shebang: None,
         attrs: vec![],
@@ -28,7 +30,7 @@ pub fn transpile_module_item(module_item: swc::ModuleItem) -> Vec<Item> {
 pub fn transpile_stmt_to_items(stmt: swc::Stmt) -> Vec<Item> {
     let stmt = transpile_stmt_only(stmt);
 
-    // TODO: wrap others in main func?
+    // TODO: wrap others in main func or do that in transpile_module?
     match stmt {
         Stmt::Local(_) => todo!("local"),
         Stmt::Item(item) => vec![item],
