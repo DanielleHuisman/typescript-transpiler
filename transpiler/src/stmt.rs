@@ -1,10 +1,28 @@
-use swc_ecma_ast::Stmt;
+use swc_ecma_ast::{ReturnStmt, Stmt};
+use syn::token;
 
-use crate::expr::transpile_expr;
+use crate::{
+    expr::transpile_expr,
+    util::{dummy_span, SynExprOrStmt},
+};
 
-pub fn transpile_stmt(stmt: Stmt) -> Vec<syn::Item> {
+pub fn transpile_stmt(stmt: Stmt) -> SynExprOrStmt {
     if stmt.is_block() {
-        todo!("stmt block")
+        SynExprOrStmt::Expr(syn::Expr::Block(syn::ExprBlock {
+            attrs: vec![],
+            label: None,
+            block: syn::Block {
+                brace_token: token::Brace(dummy_span()),
+                stmts: stmt
+                    .as_block()
+                    .expect("Stmt is Block.")
+                    .stmts
+                    .clone()
+                    .into_iter()
+                    .map(transpile_stmt_only)
+                    .collect(),
+            },
+        }))
     } else if stmt.is_empty() {
         todo!("stmt empty")
     } else if stmt.is_debugger() {
@@ -12,7 +30,9 @@ pub fn transpile_stmt(stmt: Stmt) -> Vec<syn::Item> {
     } else if stmt.is_with() {
         todo!("stmt with")
     } else if stmt.is_return_stmt() {
-        todo!("stmt return")
+        SynExprOrStmt::Stmt(transpile_return(
+            stmt.return_stmt().expect("Stmt is Return."),
+        ))
     } else if stmt.is_labeled() {
         todo!("stmt labeled")
     } else if stmt.is_break_stmt() {
@@ -40,9 +60,33 @@ pub fn transpile_stmt(stmt: Stmt) -> Vec<syn::Item> {
     } else if stmt.is_decl() {
         todo!("stmt decl")
     } else if stmt.is_expr() {
-        let expr = transpile_expr(*stmt.expr().expect("Stmt is Expr.").expr);
-        todo!("stmt expr")
+        SynExprOrStmt::Stmt(syn::Stmt::Expr(
+            transpile_expr(*stmt.expr().expect("Stmt is Expr.").expr),
+            Some(token::Semi(dummy_span())),
+        ))
     } else {
         unreachable!("Unknown statement kind.")
     }
+}
+
+pub fn transpile_stmt_only(stmt: Stmt) -> syn::Stmt {
+    let expr_or_stmt = transpile_stmt(stmt);
+
+    match expr_or_stmt {
+        SynExprOrStmt::Expr(_) => {
+            panic!("Stmt can't be transpiled to an Expr in the current context.")
+        }
+        SynExprOrStmt::Stmt(stmt) => stmt,
+    }
+}
+
+pub fn transpile_return(return_stmt: ReturnStmt) -> syn::Stmt {
+    syn::Stmt::Expr(
+        syn::Expr::Return(syn::ExprReturn {
+            attrs: vec![],
+            return_token: token::Return(dummy_span()),
+            expr: return_stmt.arg.map(|expr| Box::new(transpile_expr(*expr))),
+        }),
+        Some(token::Semi(dummy_span())),
+    )
 }

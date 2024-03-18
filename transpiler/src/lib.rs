@@ -3,7 +3,7 @@ pub mod module;
 pub mod stmt;
 pub mod util;
 
-use std::{fs, io, path::Path};
+use std::{error::Error, fs, io, path::Path};
 
 use swc_common::{
     errors::{ColorConfig, Handler},
@@ -16,7 +16,12 @@ use syn::File;
 
 use crate::module::transpile_module;
 
-fn parse_typescript_file(input_file: &Path) -> Result<Module, io::Error> {
+pub fn parse_rust_file(input_file: &Path) -> Result<File, Box<dyn Error>> {
+    let content = fs::read_to_string(input_file)?;
+    syn::parse_file(&content).map_err(Box::from)
+}
+
+pub fn parse_typescript_file(input_file: &Path) -> Result<Module, io::Error> {
     let cm: Lrc<SourceMap> = Default::default();
     let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
 

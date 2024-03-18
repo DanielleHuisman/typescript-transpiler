@@ -9,5 +9,5 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { version = "4.5.3", features = ["cargo", "derive"] }
 typescript-transpiler = { path = "../transpiler" }

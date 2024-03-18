@@ -1,8 +1,9 @@
-use swc_ecma_ast::{Expr, Lit};
+use swc_ecma_ast::{CallExpr, Expr, Lit};
+use syn::{punctuated::Punctuated, token, ExprCall, ExprParen};
 
 use crate::util::dummy_span;
 
-pub fn transpile_expr(expr: Expr) -> Vec<syn::Expr> {
+pub fn transpile_expr(expr: Expr) -> syn::Expr {
     if expr.is_this() {
         todo!("expr this")
     } else if expr.is_array() {
@@ -26,7 +27,7 @@ pub fn transpile_expr(expr: Expr) -> Vec<syn::Expr> {
     } else if expr.is_cond() {
         todo!("expr cond")
     } else if expr.is_call() {
-        todo!("expr call")
+        transpile_call(expr.call().expect("Expr is Call."))
     } else if expr.is_new() {
         todo!("expr new")
     } else if expr.is_seq() {
@@ -34,7 +35,7 @@ pub fn transpile_expr(expr: Expr) -> Vec<syn::Expr> {
     } else if expr.is_ident() {
         todo!("expr ident")
     } else if expr.is_lit() {
-        vec![transpile_lit(expr.lit().expect("Expr is Lit."))]
+        transpile_lit(expr.lit().expect("Expr is Lit."))
     } else if expr.is_tpl() {
         todo!("expr tpl")
     } else if expr.is_tagged_tpl() {
@@ -50,7 +51,11 @@ pub fn transpile_expr(expr: Expr) -> Vec<syn::Expr> {
     } else if expr.is_await_expr() {
         todo!("expr await")
     } else if expr.is_paren() {
-        todo!("expr paren")
+        syn::Expr::Paren(ExprParen {
+            attrs: vec![],
+            paren_token: token::Paren(dummy_span()),
+            expr: Box::new(transpile_expr(*expr.paren().expect("Expr is Paren.").expr)),
+        })
     } else if expr.is_jsx_member() {
         todo!("expr jsx member")
     } else if expr.is_jsx_namespaced_name() {
@@ -82,6 +87,16 @@ pub fn transpile_expr(expr: Expr) -> Vec<syn::Expr> {
     } else {
         unreachable!("Unknown expression kind.")
     }
+}
+
+pub fn transpile_call(call: CallExpr) -> syn::Expr {
+    // syn::Expr::Call(ExprCall {
+    //     attrs: vec![],
+    //     func: Box::new(),
+    //     paren_token: token::Paren(dummy_span()),
+    //     args: Punctuated::new()
+    // })
+    todo!()
 }
 
 pub fn transpile_lit(lit: Lit) -> syn::Expr {

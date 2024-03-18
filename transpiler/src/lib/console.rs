@@ -7,7 +7,3 @@ impl Console {
 }
 
 const console: Console = Console {};
-
-fn main() {
-    console.log("Hello World!");
-}
