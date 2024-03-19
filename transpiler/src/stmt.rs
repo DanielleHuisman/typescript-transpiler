@@ -27,9 +27,13 @@ pub fn transpile_stmt(stmt: swc::Stmt) -> Vec<ExprOrStmt> {
     } else if stmt.is_labeled() {
         todo!("stmt labeled")
     } else if stmt.is_break_stmt() {
-        todo!("stmt break")
+        vec![ExprOrStmt::Stmt(transpile_break(
+            stmt.break_stmt().expect("Stmt is Break."),
+        ))]
     } else if stmt.is_continue_stmt() {
-        todo!("stmt continue")
+        vec![ExprOrStmt::Stmt(transpile_continue(
+            stmt.continue_stmt().expect("Stmt is Continue."),
+        ))]
     } else if stmt.is_if_stmt() {
         vec![ExprOrStmt::Expr(transpile_if(
             stmt.if_stmt().expect("Stmt is If."),
@@ -41,11 +45,13 @@ pub fn transpile_stmt(stmt: swc::Stmt) -> Vec<ExprOrStmt> {
     } else if stmt.is_try_stmt() {
         todo!("stmt try")
     } else if stmt.is_while_stmt() {
-        vec![ExprOrStmt::Expr(transpile_while(
+        vec![ExprOrStmt::Stmt(transpile_while(
             stmt.while_stmt().expect("Stmt is While."),
         ))]
     } else if stmt.is_do_while() {
-        todo!("stmt do while")
+        vec![ExprOrStmt::Stmt(transpile_do_while(
+            stmt.do_while().expect("Stmt is DoWhile."),
+        ))]
     } else if stmt.is_for_stmt() {
         todo!("stmt for")
     } else if stmt.is_for_in() {
@@ -94,7 +100,7 @@ pub fn transpile_stmt_to_expr(stmt: swc::Stmt) -> Expr {
 
     match &expr_or_stmts[..] {
         [] => panic!("Expected expression, but got nothing."),
-        [ExprOrStmt::Expr(expr)] => expr.to_owned(),
+        [ExprOrStmt::Expr(expr)] => expr.clone(),
         [ExprOrStmt::Expr(_), ..] => panic!("Expected expression, but got multiple expressions."),
         _ => panic!("Expected expression, but got zero or more statements."),
     }
@@ -119,6 +125,31 @@ pub fn transpile_return(return_stmt: swc::ReturnStmt) -> Stmt {
     }))
 }
 
+pub fn transpile_break(break_stmt: swc::BreakStmt) -> Stmt {
+    if break_stmt.label.is_some() {
+        todo!("break label")
+    }
+
+    transpile_expr_to_stmt(Expr::Break(ExprBreak {
+        attrs: vec![],
+        break_token: token::Break(dummy_span()),
+        label: None,
+        expr: None,
+    }))
+}
+
+pub fn transpile_continue(continue_stmt: swc::ContinueStmt) -> Stmt {
+    if continue_stmt.label.is_some() {
+        todo!("continue label")
+    }
+
+    transpile_expr_to_stmt(Expr::Continue(ExprContinue {
+        attrs: vec![],
+        continue_token: token::Continue(dummy_span()),
+        label: None,
+    }))
+}
+
 pub fn transpile_if(if_stmt: swc::IfStmt) -> Expr {
     Expr::If(ExprIf {
         attrs: vec![],
@@ -134,12 +165,53 @@ pub fn transpile_if(if_stmt: swc::IfStmt) -> Expr {
     })
 }
 
-pub fn transpile_while(when: swc::WhileStmt) -> Expr {
-    Expr::While(ExprWhile {
+pub fn transpile_while(when: swc::WhileStmt) -> Stmt {
+    transpile_expr_to_stmt(Expr::While(ExprWhile {
         attrs: vec![],
         label: None,
         while_token: token::While(dummy_span()),
         cond: Box::new(transpile_expr(*when.test)),
         body: transpile_stmt_to_block(*when.body),
-    })
+    }))
+}
+
+pub fn transpile_do_while(when: swc::DoWhileStmt) -> Stmt {
+    let mut body = transpile_stmt_to_block(*when.body);
+
+    body.stmts.append(&mut vec![Stmt::Expr(
+        Expr::If(ExprIf {
+            attrs: vec![],
+            if_token: token::If(dummy_span()),
+            cond: Box::new(Expr::Unary(ExprUnary {
+                attrs: vec![],
+                op: UnOp::Not(token::Not(dummy_span())),
+                expr: Box::new(Expr::Paren(ExprParen {
+                    attrs: vec![],
+                    paren_token: token::Paren(dummy_span()),
+                    expr: Box::new(transpile_expr(*when.test)),
+                })),
+            })),
+            then_branch: Block {
+                brace_token: token::Brace(dummy_span()),
+                stmts: vec![Stmt::Expr(
+                    Expr::Break(ExprBreak {
+                        attrs: vec![],
+                        break_token: token::Break(dummy_span()),
+                        label: None,
+                        expr: None,
+                    }),
+                    Some(token::Semi(dummy_span())),
+                )],
+            },
+            else_branch: None,
+        }),
+        None,
+    )]);
+
+    transpile_expr_to_stmt(Expr::Loop(ExprLoop {
+        attrs: vec![],
+        label: None,
+        loop_token: token::Loop(dummy_span()),
+        body,
+    }))
 }

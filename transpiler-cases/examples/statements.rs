@@ -2,15 +2,26 @@ use ts_std::*;
 #[allow(clippy::all)]
 fn main() {
     let a = 1;
-    let b = 3;
+    let b = 2;
+    let c = 3;
     if a == b {
-        console.log("equal");
+        console.log("equal to b");
+    } else if a == c {
+        console.log("equal to c");
     } else {
-        console.log("not equal");
+        console.log("not equal to b or c");
     };
-    let mut c = 10;
-    while c >= 0 {
-        console.log(c);
-        c -= 1;
+    let mut d = 10;
+    while d >= 0 {
+        console.log(d);
+        d -= 1;
     }
+    d = 10;
+    loop {
+        console.log(d);
+        d -= 1;
+        if !(d >= 0) {
+            break;
+        }
+    };
 }

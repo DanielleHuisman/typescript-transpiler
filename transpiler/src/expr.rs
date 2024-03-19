@@ -19,7 +19,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_bin() {
         transpile_bin(expr.bin().expect("Expr is Bin."))
     } else if expr.is_assign() {
-        todo!("expr assign")
+        transpile_assign(expr.assign().expect("Expr is Assign."))
     } else if expr.is_member() {
         todo!("expr member")
     } else if expr.is_super_prop() {
@@ -130,7 +130,7 @@ pub fn transpile_bin_op(op: swc::BinaryOp) -> BinOp {
         swc::BinaryOp::GtEq => BinOp::Ge(token::Ge(dummy_span())),
         swc::BinaryOp::LShift => BinOp::Shl(token::Shl(dummy_span())),
         swc::BinaryOp::RShift => BinOp::Shr(token::Shr(dummy_span())),
-        swc::BinaryOp::ZeroFillRShift => todo!("op zero fill right shift"),
+        swc::BinaryOp::ZeroFillRShift => todo!("bin op zero fill right shift"),
         swc::BinaryOp::Add => BinOp::Add(token::Plus(dummy_span())),
         swc::BinaryOp::Sub => BinOp::Sub(token::Minus(dummy_span())),
         swc::BinaryOp::Mul => BinOp::Mul(token::Star(dummy_span())),
@@ -141,11 +141,104 @@ pub fn transpile_bin_op(op: swc::BinaryOp) -> BinOp {
         swc::BinaryOp::BitAnd => BinOp::BitAnd(token::And(dummy_span())),
         swc::BinaryOp::LogicalOr => BinOp::Or(token::OrOr(dummy_span())),
         swc::BinaryOp::LogicalAnd => BinOp::And(token::AndAnd(dummy_span())),
-        swc::BinaryOp::In => todo!("op in"),
-        swc::BinaryOp::InstanceOf => todo!("op instanceof"),
+        swc::BinaryOp::In => todo!("bin op in"),
+        swc::BinaryOp::InstanceOf => todo!("bin op instanceof"),
         // TODO: transpile to <int type>::pow() or <float type>::powf() or <float type>::powi()
-        swc::BinaryOp::Exp => todo!("op exp"),
-        swc::BinaryOp::NullishCoalescing => todo!("op nullish coalescing"),
+        swc::BinaryOp::Exp => todo!("bin op exp"),
+        swc::BinaryOp::NullishCoalescing => todo!("bin op nullish coalescing"),
+    }
+}
+
+pub fn transpile_assign(assign: swc::AssignExpr) -> Expr {
+    // TODO: mut option can be removed if every branch defines left
+    let mut left: Option<Expr> = None;
+
+    if assign.left.is_simple() {
+        let simple = assign.left.simple().expect("AssignTarget is Simple.");
+
+        if simple.is_ident() {
+            let ident = simple.ident().expect("SimpleAssignTarget is Ident.");
+
+            left = Some(Expr::Path(ExprPath {
+                attrs: vec![],
+                qself: None,
+                path: Path::from(PathSegment {
+                    ident: Ident::new(ident.id.sym.as_str(), dummy_span()),
+                    arguments: PathArguments::None,
+                }),
+            }));
+        } else if simple.is_member() {
+            todo!("simple assign target member")
+        } else if simple.is_super_prop() {
+            todo!("simple assign target super prop")
+        } else if simple.is_paren() {
+            todo!("simple assign target paren")
+        } else if simple.is_opt_chain() {
+            todo!("simple assign target opt chain")
+        } else if simple.is_ts_as() {
+            todo!("simple assign target ts as")
+        } else if simple.is_ts_satisfies() {
+            todo!("simple assign target ts satisfies")
+        } else if simple.is_ts_non_null() {
+            todo!("simple assign target ts non null")
+        } else if simple.is_ts_type_assertion() {
+            todo!("simple assign target ts type assertion")
+        } else if simple.is_ts_instantiation() {
+            todo!("simple assign target ts type instantiation")
+        } else if simple.is_invalid() {
+            todo!("simple assign target invalid")
+        } else {
+            unreachable!("Unknown simple assign target kind.")
+        }
+    } else if assign.left.is_pat() {
+        let pat = assign.left.pat().expect("AssignTarget is Pat.");
+
+        if pat.is_array() {
+            todo!("pat assign target array")
+        } else if pat.is_object() {
+            todo!("pat assign target array")
+        } else if pat.is_invalid() {
+            todo!("pat assign target invalid")
+        }
+    }
+
+    let left = Box::new(left.expect("Left should be defined."));
+    let right = Box::new(transpile_expr(*assign.right));
+
+    match assign.op {
+        swc::AssignOp::Assign => Expr::Assign(ExprAssign {
+            attrs: vec![],
+            left,
+            eq_token: token::Eq(dummy_span()),
+            right,
+        }),
+        _ => Expr::Binary(ExprBinary {
+            attrs: vec![],
+            left,
+            op: transpile_assign_op(assign.op),
+            right,
+        }),
+    }
+}
+
+pub fn transpile_assign_op(op: swc::AssignOp) -> BinOp {
+    match op {
+        swc::AssignOp::Assign => panic!("Assign can't be transpiled to BinOp."),
+        swc::AssignOp::AddAssign => BinOp::AddAssign(token::PlusEq(dummy_span())),
+        swc::AssignOp::SubAssign => BinOp::SubAssign(token::MinusEq(dummy_span())),
+        swc::AssignOp::MulAssign => BinOp::MulAssign(token::StarEq(dummy_span())),
+        swc::AssignOp::DivAssign => BinOp::DivAssign(token::SlashEq(dummy_span())),
+        swc::AssignOp::ModAssign => BinOp::RemAssign(token::PercentEq(dummy_span())),
+        swc::AssignOp::LShiftAssign => BinOp::ShlAssign(token::ShlEq(dummy_span())),
+        swc::AssignOp::RShiftAssign => BinOp::ShrAssign(token::ShrEq(dummy_span())),
+        swc::AssignOp::ZeroFillRShiftAssign => todo!("assign op zero fill right shift"),
+        swc::AssignOp::BitOrAssign => BinOp::BitOrAssign(token::OrEq(dummy_span())),
+        swc::AssignOp::BitXorAssign => BinOp::BitXorAssign(token::CaretEq(dummy_span())),
+        swc::AssignOp::BitAndAssign => BinOp::BitAndAssign(token::AndEq(dummy_span())),
+        swc::AssignOp::ExpAssign => todo!("assign op exp"),
+        swc::AssignOp::AndAssign => todo!("assign op and"),
+        swc::AssignOp::OrAssign => todo!("assign op or"),
+        swc::AssignOp::NullishAssign => todo!("assign op nullish"),
     }
 }
 
