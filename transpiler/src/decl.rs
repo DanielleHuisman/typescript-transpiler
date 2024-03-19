@@ -27,7 +27,7 @@ pub fn transpile_decl(decl: swc::Decl) -> Vec<ExprOrStmt> {
     } else if decl.is_ts_module() {
         todo!("decl ts module")
     } else {
-        unreachable!("Unknown declaration kind.")
+        unreachable!("Unknown Decl.")
     }
 }
 
@@ -88,6 +88,6 @@ pub fn transpile_var_declarator(var: &swc::VarDecl, declarator: swc::VarDeclarat
     } else if declarator.name.is_expr() {
         todo!("var delcarator expr")
     } else {
-        unreachable!("Unknown variable declarator kind.")
+        unreachable!("Unknown VarDeclarator.")
     }
 }

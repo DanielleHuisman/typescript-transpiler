@@ -11,11 +11,13 @@ fn main() {
     } else {
         console.log("not equal to b or c");
     };
+    console.log("while");
     let mut d = 10;
     while d >= 0 {
         console.log(d);
         d -= 1;
     }
+    console.log("do while");
     d = 10;
     loop {
         console.log(d);
@@ -23,5 +25,9 @@ fn main() {
         if !(d >= 0) {
             break;
         }
-    };
+    }
+    console.log("for");
+    for i in (0..=10).rev().step_by(2) {
+        console.log(i);
+    }
 }

@@ -85,7 +85,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_invalid() {
         todo!("expr invalid")
     } else {
-        unreachable!("Unknown expression kind.")
+        unreachable!("Unknown Expr.")
     }
 }
 
@@ -188,7 +188,7 @@ pub fn transpile_assign(assign: swc::AssignExpr) -> Expr {
         } else if simple.is_invalid() {
             todo!("simple assign target invalid")
         } else {
-            unreachable!("Unknown simple assign target kind.")
+            unreachable!("Unknown SimpleAssignTarget.")
         }
     } else if assign.left.is_pat() {
         let pat = assign.left.pat().expect("AssignTarget is Pat.");
@@ -199,6 +199,8 @@ pub fn transpile_assign(assign: swc::AssignExpr) -> Expr {
             todo!("pat assign target array")
         } else if pat.is_invalid() {
             todo!("pat assign target invalid")
+        } else {
+            unreachable!("Unknown AssignTargetPat.")
         }
     }
 
@@ -292,7 +294,7 @@ pub fn transpile_call(call: swc::CallExpr) -> Expr {
             todo!("call expr non-member")
         }
     } else {
-        unreachable!("Unknown callee kind.")
+        unreachable!("Unknown Callee.")
     }
 }
 

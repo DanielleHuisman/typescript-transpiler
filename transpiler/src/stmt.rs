@@ -1,8 +1,10 @@
+use std::mem;
+
 use swc_ecma_ast as swc;
-use syn::*;
+use syn::{punctuated::Punctuated, *};
 
 use crate::{
-    decl::transpile_decl,
+    decl::{transpile_decl, transpile_var},
     expr::transpile_expr,
     util::{dummy_span, ExprOrStmt},
 };
@@ -53,7 +55,10 @@ pub fn transpile_stmt(stmt: swc::Stmt) -> Vec<ExprOrStmt> {
             stmt.do_while().expect("Stmt is DoWhile."),
         ))]
     } else if stmt.is_for_stmt() {
-        todo!("stmt for")
+        transpile_for(stmt.for_stmt().expect("Stmt is For."))
+            .into_iter()
+            .map(ExprOrStmt::Stmt)
+            .collect()
     } else if stmt.is_for_in() {
         todo!("stmt for in")
     } else if stmt.is_for_of() {
@@ -65,7 +70,7 @@ pub fn transpile_stmt(stmt: swc::Stmt) -> Vec<ExprOrStmt> {
             *stmt.expr().expect("Stmt is Expr.").expr,
         )))]
     } else {
-        unreachable!("Unknown statement kind.")
+        unreachable!("Unknown Stmt.")
     }
 }
 
@@ -178,7 +183,7 @@ pub fn transpile_while(when: swc::WhileStmt) -> Stmt {
 pub fn transpile_do_while(when: swc::DoWhileStmt) -> Stmt {
     let mut body = transpile_stmt_to_block(*when.body);
 
-    body.stmts.append(&mut vec![Stmt::Expr(
+    body.stmts.push(Stmt::Expr(
         Expr::If(ExprIf {
             attrs: vec![],
             if_token: token::If(dummy_span()),
@@ -206,7 +211,7 @@ pub fn transpile_do_while(when: swc::DoWhileStmt) -> Stmt {
             else_branch: None,
         }),
         None,
-    )]);
+    ));
 
     transpile_expr_to_stmt(Expr::Loop(ExprLoop {
         attrs: vec![],
@@ -214,4 +219,284 @@ pub fn transpile_do_while(when: swc::DoWhileStmt) -> Stmt {
         loop_token: token::Loop(dummy_span()),
         body,
     }))
+}
+
+pub fn transpile_for(for_stmt: swc::ForStmt) -> Vec<Stmt> {
+    if let Some(stmt) = transpile_for_range(for_stmt.clone()) {
+        return vec![stmt];
+    }
+
+    let mut body = transpile_stmt_to_block(*for_stmt.body);
+
+    if let Some(update) = for_stmt.update {
+        body.stmts.push(Stmt::Expr(
+            transpile_expr(*update),
+            Some(token::Semi(dummy_span())),
+        ))
+    }
+
+    let stmt = transpile_expr_to_stmt(if let Some(test) = for_stmt.test {
+        Expr::While(ExprWhile {
+            attrs: vec![],
+            label: None,
+            while_token: token::While(dummy_span()),
+            cond: Box::new(transpile_expr(*test)),
+            body,
+        })
+    } else {
+        Expr::Loop(ExprLoop {
+            attrs: vec![],
+            label: None,
+            loop_token: token::Loop(dummy_span()),
+            body,
+        })
+    });
+
+    if let Some(init) = for_stmt.init {
+        if init.is_var_decl() {
+            transpile_var(*init.var_decl().expect("VarDeclOrExpr is VarDecl."))
+                .into_iter()
+                .map(transpile_expr_to_stmt)
+                .chain(vec![stmt])
+                .collect()
+        } else if init.is_expr() {
+            vec![
+                transpile_expr_to_stmt(transpile_expr(
+                    *init.expr().expect("VarDeclOrExpr is Expr."),
+                )),
+                stmt,
+            ]
+        } else {
+            unreachable!("Unknown VarDeclOrExpr.")
+        }
+    } else {
+        vec![stmt]
+    }
+}
+
+fn transpile_for_range(for_stmt: swc::ForStmt) -> Option<Stmt> {
+    let mut range_ident = "".into();
+    let mut range_start = 0;
+    let mut range_end = 0;
+    let mut range_step = 0;
+    let mut range_inclusive = false;
+
+    if let Some(init) = for_stmt.init {
+        if !init.is_var_decl() {
+            return None;
+        }
+
+        let var = init.var_decl().expect("VarDeclOrExpr is Expr.");
+        if var.decls.len() != 1 {
+            return None;
+        }
+
+        let decl = var.decls[0].clone();
+        if !decl.name.is_ident() {
+            return None;
+        }
+
+        if let Some(init) = decl.init {
+            if !init.is_lit() {
+                return None;
+            }
+
+            let lit = init.lit().expect("Expr is Lit.");
+            match lit {
+                swc::Lit::Num(num) => {
+                    range_ident = decl
+                        .name
+                        .ident()
+                        .expect("VarDeclarator is Ident.")
+                        .id
+                        .sym
+                        .as_str()
+                        .to_string();
+
+                    if num.value.trunc() != num.value {
+                        return None;
+                    }
+
+                    range_start = num.value as i64;
+                }
+                _ => return None,
+            }
+        }
+    } else {
+        return None;
+    }
+
+    if let Some(test) = for_stmt.test {
+        if !test.is_bin() {
+            return None;
+        }
+
+        let bin = test.bin().expect("Expr is Bin.");
+        if !bin.left.is_ident() || !bin.right.is_lit() {
+            return None;
+        }
+
+        let ident = bin.left.ident().expect("Expr is Ident.");
+        if ident.sym.as_str() != range_ident {
+            return None;
+        }
+
+        let lit = bin.right.lit().expect("Expr is Lit.");
+        match lit {
+            swc::Lit::Num(num) => {
+                if num.value.trunc() != num.value {
+                    return None;
+                }
+
+                let value = num.value as i64;
+                match bin.op {
+                    swc::BinaryOp::Lt => {
+                        range_end = value;
+                        range_inclusive = false;
+                    }
+                    swc::BinaryOp::LtEq => {
+                        range_end = value;
+                        range_inclusive = true;
+                    }
+                    swc::BinaryOp::Gt => {
+                        range_end = value;
+                        range_inclusive = false;
+                    }
+                    swc::BinaryOp::GtEq => {
+                        range_end = value;
+                        range_inclusive = true;
+                    }
+                    _ => return None,
+                };
+            }
+            _ => return None,
+        }
+    }
+
+    if let Some(update) = for_stmt.update {
+        if update.is_update() {
+            let update = update.update().expect("Expr is Update.");
+
+            if !update.arg.is_ident() {
+                return None;
+            }
+
+            let ident = update.arg.ident().expect("Expr is Ident.");
+            if ident.sym.as_str() != range_ident {
+                return None;
+            }
+
+            range_step = match update.op {
+                swc::UpdateOp::PlusPlus => 1,
+                swc::UpdateOp::MinusMinus => -1,
+            }
+        } else if update.is_assign() {
+            let assign = update.assign().expect("Expr is Assign.");
+
+            if !assign.left.is_simple() || !assign.right.is_lit() {
+                return None;
+            }
+
+            let simple = assign.left.simple().expect("AssignTarget is Simple.");
+            if !simple.is_ident() {
+                return None;
+            }
+
+            let ident = simple.ident().expect("Expr is Ident.");
+            if ident.sym.as_str() != range_ident {
+                return None;
+            }
+
+            let lit = assign.right.lit().expect("Expr is Lit.");
+            match lit {
+                swc::Lit::Num(num) => {
+                    if num.value.trunc() != num.value {
+                        return None;
+                    }
+
+                    let value = num.value as i64;
+                    range_step = match assign.op {
+                        swc::AssignOp::AddAssign => value,
+                        swc::AssignOp::SubAssign => -value,
+                        _ => return None,
+                    };
+                }
+                _ => return None,
+            }
+        } else {
+            return None;
+        }
+    }
+
+    if range_step < 0 {
+        mem::swap(&mut range_start, &mut range_end);
+    }
+
+    let mut expr = Expr::Range(ExprRange {
+        attrs: vec![],
+        start: Some(Box::new(Expr::Lit(ExprLit {
+            attrs: vec![],
+            lit: Lit::Int(LitInt::new(&range_start.to_string(), dummy_span())),
+        }))),
+        limits: if range_inclusive {
+            RangeLimits::Closed(token::DotDotEq(dummy_span()))
+        } else {
+            RangeLimits::HalfOpen(token::DotDot(dummy_span()))
+        },
+        end: Some(Box::new(Expr::Lit(ExprLit {
+            attrs: vec![],
+            lit: Lit::Int(LitInt::new(&range_end.to_string(), dummy_span())),
+        }))),
+    });
+
+    if range_step.abs() != 1 || range_step < 0 {
+        expr = Expr::Paren(ExprParen {
+            attrs: vec![],
+            paren_token: token::Paren(dummy_span()),
+            expr: Box::new(expr),
+        });
+    }
+
+    if range_step < 0 {
+        expr = Expr::MethodCall(ExprMethodCall {
+            attrs: vec![],
+            receiver: Box::new(expr),
+            dot_token: token::Dot(dummy_span()),
+            method: Ident::new("rev", dummy_span()),
+            turbofish: None,
+            paren_token: token::Paren(dummy_span()),
+            args: Punctuated::new(),
+        })
+    }
+
+    if range_step.abs() != 1 {
+        expr = Expr::MethodCall(ExprMethodCall {
+            attrs: vec![],
+            receiver: Box::new(expr),
+            dot_token: token::Dot(dummy_span()),
+            method: Ident::new("step_by", dummy_span()),
+            turbofish: None,
+            paren_token: token::Paren(dummy_span()),
+            args: Punctuated::from_iter(vec![Expr::Lit(ExprLit {
+                attrs: vec![],
+                lit: Lit::Int(LitInt::new(&range_step.abs().to_string(), dummy_span())),
+            })]),
+        })
+    }
+
+    Some(transpile_expr_to_stmt(Expr::ForLoop(ExprForLoop {
+        attrs: vec![],
+        label: None,
+        for_token: token::For(dummy_span()),
+        pat: Box::new(Pat::Ident(PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: Ident::new(&range_ident, dummy_span()),
+            subpat: None,
+        })),
+        in_token: token::In(dummy_span()),
+        expr: Box::new(expr),
+        body: transpile_stmt_to_block(*for_stmt.body),
+    })))
 }

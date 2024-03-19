@@ -42,7 +42,7 @@ pub fn transpile_module_item(module_item: swc::ModuleItem) -> Vec<ItemOrStmt> {
             .map(ItemOrStmt::Stmt)
             .collect()
     } else {
-        unreachable!("Unknown module item kind.")
+        unreachable!("Unknown ModuleItem.")
     }
 }
 
