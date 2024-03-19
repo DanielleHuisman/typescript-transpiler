@@ -13,7 +13,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_fn_expr() {
         todo!("expr fn")
     } else if expr.is_unary() {
-        todo!("expr unary")
+        transpile_unary(expr.unary().expect("Expr is Unary."))
     } else if expr.is_update() {
         transpile_update(expr.update().expect("Expr is Update."))
     } else if expr.is_bin() {
@@ -86,6 +86,26 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
         todo!("expr invalid")
     } else {
         unreachable!("Unknown Expr.")
+    }
+}
+
+pub fn transpile_unary(unary: swc::UnaryExpr) -> Expr {
+    Expr::Unary(ExprUnary {
+        attrs: vec![],
+        op: transpile_unary_op(unary.op),
+        expr: Box::new(transpile_expr(*unary.arg)),
+    })
+}
+
+pub fn transpile_unary_op(op: swc::UnaryOp) -> UnOp {
+    match op {
+        swc::UnaryOp::Minus => UnOp::Neg(token::Minus(dummy_span())),
+        swc::UnaryOp::Plus => todo!("unary op plus"),
+        swc::UnaryOp::Bang => UnOp::Not(token::Not(dummy_span())),
+        swc::UnaryOp::Tilde => todo!("unary op tilde"),
+        swc::UnaryOp::TypeOf => todo!("unary op type of"),
+        swc::UnaryOp::Void => todo!("unary op void"),
+        swc::UnaryOp::Delete => todo!("unary op delete"),
     }
 }
 
