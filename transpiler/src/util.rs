@@ -5,11 +5,13 @@ pub fn dummy_span() -> Span {
     "".span()
 }
 
+#[derive(Clone, Debug)]
 pub enum ItemOrStmt {
     Item(Item),
     Stmt(Stmt),
 }
 
+#[derive(Clone, Debug)]
 pub enum ExprOrStmt {
     Expr(Expr),
     Stmt(Stmt),

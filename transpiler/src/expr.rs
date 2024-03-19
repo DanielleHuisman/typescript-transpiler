@@ -17,7 +17,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_update() {
         todo!("expr update")
     } else if expr.is_bin() {
-        todo!("expr bin")
+        transpile_bin(expr.bin().expect("Expr is Bin."))
     } else if expr.is_assign() {
         todo!("expr assign")
     } else if expr.is_member() {
@@ -33,7 +33,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_seq() {
         todo!("expr seq")
     } else if expr.is_ident() {
-        todo!("expr ident")
+        transpile_ident(expr.ident().expect("Expr is Ident."))
     } else if expr.is_lit() {
         transpile_lit(expr.lit().expect("Expr is Lit."))
     } else if expr.is_tpl() {
@@ -89,6 +89,47 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     }
 }
 
+pub fn transpile_bin(bin: swc::BinExpr) -> Expr {
+    Expr::Binary(ExprBinary {
+        attrs: vec![],
+        left: Box::new(transpile_expr(*bin.left)),
+        op: transpile_bin_op(bin.op),
+        right: Box::new(transpile_expr(*bin.right)),
+    })
+}
+
+pub fn transpile_bin_op(op: swc::BinaryOp) -> BinOp {
+    match op {
+        // TODO: equality works very differently in TS than Rust, so these simple conversion won't work
+        swc::BinaryOp::EqEq => BinOp::Eq(token::EqEq(dummy_span())),
+        swc::BinaryOp::NotEq => BinOp::Ne(token::Ne(dummy_span())),
+        swc::BinaryOp::EqEqEq => BinOp::Eq(token::EqEq(dummy_span())),
+        swc::BinaryOp::NotEqEq => BinOp::Ne(token::Ne(dummy_span())),
+        swc::BinaryOp::Lt => BinOp::Lt(token::Lt(dummy_span())),
+        swc::BinaryOp::LtEq => BinOp::Le(token::Le(dummy_span())),
+        swc::BinaryOp::Gt => BinOp::Gt(token::Gt(dummy_span())),
+        swc::BinaryOp::GtEq => BinOp::Ge(token::Ge(dummy_span())),
+        swc::BinaryOp::LShift => BinOp::Shl(token::Shl(dummy_span())),
+        swc::BinaryOp::RShift => BinOp::Shr(token::Shr(dummy_span())),
+        swc::BinaryOp::ZeroFillRShift => todo!("op zero fill right shift"),
+        swc::BinaryOp::Add => BinOp::Add(token::Plus(dummy_span())),
+        swc::BinaryOp::Sub => BinOp::Sub(token::Minus(dummy_span())),
+        swc::BinaryOp::Mul => BinOp::Mul(token::Star(dummy_span())),
+        swc::BinaryOp::Div => BinOp::Div(token::Slash(dummy_span())),
+        swc::BinaryOp::Mod => BinOp::Rem(token::Percent(dummy_span())),
+        swc::BinaryOp::BitOr => BinOp::BitOr(token::Or(dummy_span())),
+        swc::BinaryOp::BitXor => BinOp::BitXor(token::Caret(dummy_span())),
+        swc::BinaryOp::BitAnd => BinOp::BitAnd(token::And(dummy_span())),
+        swc::BinaryOp::LogicalOr => BinOp::Or(token::OrOr(dummy_span())),
+        swc::BinaryOp::LogicalAnd => BinOp::And(token::AndAnd(dummy_span())),
+        swc::BinaryOp::In => todo!("op in"),
+        swc::BinaryOp::InstanceOf => todo!("op instanceof"),
+        // TODO: transpile to <int type>::pow() or <float type>::powf() or <float type>::powi()
+        swc::BinaryOp::Exp => todo!("op exp"),
+        swc::BinaryOp::NullishCoalescing => todo!("op nullish coalescing"),
+    }
+}
+
 pub fn transpile_call(call: swc::CallExpr) -> Expr {
     let args: Punctuated<Expr, token::Comma> =
         Punctuated::from_iter(call.args.into_iter().map(|arg| {
@@ -141,6 +182,17 @@ pub fn transpile_call(call: swc::CallExpr) -> Expr {
     } else {
         unreachable!("Unknown callee kind.")
     }
+}
+
+pub fn transpile_ident(ident: swc::Ident) -> Expr {
+    Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: Path::from(PathSegment {
+            ident: Ident::new(ident.sym.as_str(), dummy_span()),
+            arguments: PathArguments::None,
+        }),
+    })
 }
 
 pub fn transpile_lit(lit: swc::Lit) -> Expr {

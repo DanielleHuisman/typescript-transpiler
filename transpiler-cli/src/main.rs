@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .arg(
                     Arg::new("output")
-                        .required(true)
+                        .required(false)
                         .value_parser(value_parser!(PathBuf)),
                 ),
         );
@@ -96,7 +96,7 @@ fn parse_ts(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
 #[command(version, about, long_about = None)]
 struct TranspileArgs {
     input: PathBuf,
-    output: PathBuf,
+    output: Option<PathBuf>,
 }
 
 fn transpile(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
@@ -111,7 +111,13 @@ fn transpile(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         .exit();
     }
 
-    let output_directory = args.output.parent();
+    let output = args.output.unwrap_or_else(|| {
+        let mut output = args.input.clone();
+        output.set_extension("rs");
+        output
+    });
+
+    let output_directory = output.parent();
     if output_directory.is_none() || !output_directory.unwrap().exists() {
         let mut cmd = TranspileArgs::command();
         cmd.error(
@@ -124,5 +130,5 @@ fn transpile(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         .exit();
     }
 
-    transpile_file(args.input.as_path(), args.output.as_path()).map_err(Box::from)
+    transpile_file(args.input.as_path(), output.as_path()).map_err(Box::from)
 }

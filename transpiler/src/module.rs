@@ -1,15 +1,16 @@
+use quote::quote;
 use swc_ecma_ast as swc;
 use syn::{punctuated::Punctuated, *};
 
 use crate::{
-    stmt::transpile_stmt_only,
+    stmt::transpile_stmt_to_stmts,
     util::{dummy_span, ItemOrStmt},
 };
 
 pub fn transpile_module(module: swc::Module) -> File {
     let uses = vec![generate_std_use()];
 
-    let item_or_stmts = module.body.into_iter().map(transpile_module_item);
+    let item_or_stmts = module.body.into_iter().flat_map(transpile_module_item);
     let items = item_or_stmts.clone().filter_map(|ios| match ios {
         ItemOrStmt::Item(item) => Some(item),
         ItemOrStmt::Stmt(Stmt::Item(item)) => Some(item),
@@ -32,13 +33,14 @@ pub fn transpile_module(module: swc::Module) -> File {
     }
 }
 
-pub fn transpile_module_item(module_item: swc::ModuleItem) -> ItemOrStmt {
+pub fn transpile_module_item(module_item: swc::ModuleItem) -> Vec<ItemOrStmt> {
     if module_item.is_module_decl() {
         todo!("module item module decl")
     } else if module_item.is_stmt() {
-        ItemOrStmt::Stmt(transpile_stmt_only(
-            module_item.stmt().expect("ModuleItem is Stmt."),
-        ))
+        transpile_stmt_to_stmts(module_item.stmt().expect("ModuleItem is Stmt."))
+            .into_iter()
+            .map(ItemOrStmt::Stmt)
+            .collect()
     } else {
         unreachable!("Unknown module item kind.")
     }
@@ -63,7 +65,7 @@ fn generate_std_use() -> Item {
 
 fn generate_main_fn(stmts: Vec<Stmt>) -> Item {
     Item::Fn(ItemFn {
-        attrs: vec![],
+        attrs: vec![generate_allow_clippy_all_attribute()],
         vis: Visibility::Inherited,
         sig: Signature {
             constness: None,
@@ -88,4 +90,20 @@ fn generate_main_fn(stmts: Vec<Stmt>) -> Item {
             stmts,
         }),
     })
+}
+
+fn generate_allow_clippy_all_attribute() -> Attribute {
+    Attribute {
+        pound_token: token::Pound(dummy_span()),
+        style: AttrStyle::Outer,
+        bracket_token: token::Bracket(dummy_span()),
+        meta: Meta::List(MetaList {
+            path: Path::from(PathSegment {
+                ident: Ident::new("allow", dummy_span()),
+                arguments: PathArguments::None,
+            }),
+            delimiter: MacroDelimiter::Paren(token::Paren(dummy_span())),
+            tokens: quote!(clippy::all),
+        }),
+    }
 }
