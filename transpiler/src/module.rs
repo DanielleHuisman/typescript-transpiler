@@ -1,40 +1,91 @@
 use swc_ecma_ast as swc;
-use syn::{File, Item, Stmt};
+use syn::{punctuated::Punctuated, *};
 
-use crate::stmt::transpile_stmt_only;
+use crate::{
+    stmt::transpile_stmt_only,
+    util::{dummy_span, ItemOrStmt},
+};
 
 pub fn transpile_module(module: swc::Module) -> File {
-    // TODO: add `use ts_std::*;` to top of file
+    let uses = vec![generate_std_use()];
+
+    let item_or_stmts = module.body.into_iter().map(transpile_module_item);
+    let items = item_or_stmts.clone().filter_map(|ios| match ios {
+        ItemOrStmt::Item(item) => Some(item),
+        ItemOrStmt::Stmt(Stmt::Item(item)) => Some(item),
+        _ => None,
+    });
+    let stmts = item_or_stmts.filter_map(|ios| match ios {
+        ItemOrStmt::Stmt(Stmt::Item(_)) => None,
+        ItemOrStmt::Stmt(stmt) => Some(stmt),
+        _ => None,
+    });
 
     File {
         shebang: None,
         attrs: vec![],
-        items: module
-            .body
+        items: uses
             .into_iter()
-            .flat_map(transpile_module_item)
+            .chain(items)
+            .chain(vec![generate_main_fn(stmts.collect())])
             .collect(),
     }
 }
 
-pub fn transpile_module_item(module_item: swc::ModuleItem) -> Vec<Item> {
+pub fn transpile_module_item(module_item: swc::ModuleItem) -> ItemOrStmt {
     if module_item.is_module_decl() {
         todo!("module item module decl")
     } else if module_item.is_stmt() {
-        transpile_stmt_to_items(module_item.stmt().expect("ModuleItem is Stmt."))
+        ItemOrStmt::Stmt(transpile_stmt_only(
+            module_item.stmt().expect("ModuleItem is Stmt."),
+        ))
     } else {
         unreachable!("Unknown module item kind.")
     }
 }
 
-pub fn transpile_stmt_to_items(stmt: swc::Stmt) -> Vec<Item> {
-    let stmt = transpile_stmt_only(stmt);
+fn generate_std_use() -> Item {
+    Item::Use(ItemUse {
+        attrs: vec![],
+        vis: Visibility::Inherited,
+        use_token: token::Use(dummy_span()),
+        leading_colon: None,
+        tree: UseTree::Path(UsePath {
+            ident: Ident::new("ts_std", dummy_span()),
+            colon2_token: token::PathSep(dummy_span()),
+            tree: Box::new(UseTree::Glob(UseGlob {
+                star_token: token::Star(dummy_span()),
+            })),
+        }),
+        semi_token: token::Semi(dummy_span()),
+    })
+}
 
-    // TODO: wrap others in main func or do that in transpile_module?
-    match stmt {
-        Stmt::Local(_) => todo!("local"),
-        Stmt::Item(item) => vec![item],
-        Stmt::Expr(_, _) => todo!("expr"),
-        Stmt::Macro(_) => todo!("macro"),
-    }
+fn generate_main_fn(stmts: Vec<Stmt>) -> Item {
+    Item::Fn(ItemFn {
+        attrs: vec![],
+        vis: Visibility::Inherited,
+        sig: Signature {
+            constness: None,
+            asyncness: None,
+            unsafety: None,
+            abi: None,
+            fn_token: token::Fn(dummy_span()),
+            ident: Ident::new("main", dummy_span()),
+            generics: Generics {
+                lt_token: None,
+                params: Punctuated::new(),
+                gt_token: None,
+                where_clause: None,
+            },
+            paren_token: token::Paren(dummy_span()),
+            inputs: Punctuated::new(),
+            variadic: None,
+            output: ReturnType::Default,
+        },
+        block: Box::new(Block {
+            brace_token: token::Brace(dummy_span()),
+            stmts,
+        }),
+    })
 }

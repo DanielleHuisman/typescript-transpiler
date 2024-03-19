@@ -1,0 +1,15 @@
+[package]
+name = "typescript-transpiler-cases"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+ts-std = { path = "../ts-std" }
+
+[[example]]
+name = "hello_world"

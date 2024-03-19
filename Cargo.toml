@@ -1,5 +1,5 @@
 [workspace]
-members = ["transpiler", "transpiler-cli", "transpiler-playground", "ts-std"]
+members = ["transpiler", "transpiler-cases", "transpiler-cli", "ts-std"]
 resolver = "2"
 
 [workspace.package]

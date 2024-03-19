@@ -1,7 +1,7 @@
 pub struct Console {}
 
 impl Console {
-    pub fn log(value: &str) {
+    pub fn log(&self, value: &str) {
         println!("{}", value);
     }
 }
