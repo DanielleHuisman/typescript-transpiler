@@ -41,7 +41,9 @@ pub fn transpile_stmt(stmt: swc::Stmt) -> Vec<ExprOrStmt> {
     } else if stmt.is_try_stmt() {
         todo!("stmt try")
     } else if stmt.is_while_stmt() {
-        todo!("stmt while")
+        vec![ExprOrStmt::Expr(transpile_while(
+            stmt.while_stmt().expect("Stmt is While."),
+        ))]
     } else if stmt.is_do_while() {
         todo!("stmt do while")
     } else if stmt.is_for_stmt() {
@@ -129,5 +131,15 @@ pub fn transpile_if(if_stmt: swc::IfStmt) -> Expr {
                 Box::new(transpile_stmt_to_expr(*alt)),
             )
         }),
+    })
+}
+
+pub fn transpile_while(when: swc::WhileStmt) -> Expr {
+    Expr::While(ExprWhile {
+        attrs: vec![],
+        label: None,
+        while_token: token::While(dummy_span()),
+        cond: Box::new(transpile_expr(*when.test)),
+        body: transpile_stmt_to_block(*when.body),
     })
 }

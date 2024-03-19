@@ -37,12 +37,13 @@ pub fn transpile_var(var: swc::VarDecl) -> Vec<Expr> {
     }
 
     var.decls
+        .clone()
         .into_iter()
-        .map(transpile_var_declarator)
+        .map(|declarator| transpile_var_declarator(&var, declarator))
         .collect()
 }
 
-pub fn transpile_var_declarator(declarator: swc::VarDeclarator) -> Expr {
+pub fn transpile_var_declarator(var: &swc::VarDecl, declarator: swc::VarDeclarator) -> Expr {
     if declarator.init.is_none() {
         todo!("declarator init is none")
     }
@@ -54,7 +55,11 @@ pub fn transpile_var_declarator(declarator: swc::VarDeclarator) -> Expr {
             pat: Box::new(Pat::Ident(PatIdent {
                 attrs: vec![],
                 by_ref: None,
-                mutability: None,
+                mutability: match var.kind {
+                    swc::VarDeclKind::Var => Some(token::Mut(dummy_span())),
+                    swc::VarDeclKind::Let => Some(token::Mut(dummy_span())),
+                    swc::VarDeclKind::Const => None,
+                },
                 ident: Ident::new(
                     declarator
                         .name

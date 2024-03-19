@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub struct Console {}
 
 impl Console {
@@ -5,7 +7,7 @@ impl Console {
         assert!(assertion);
     }
 
-    pub fn log(&self, value: &str) {
+    pub fn log<V: Display>(&self, value: V) {
         println!("{}", value);
     }
 }

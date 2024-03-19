@@ -15,7 +15,7 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
     } else if expr.is_unary() {
         todo!("expr unary")
     } else if expr.is_update() {
-        todo!("expr update")
+        transpile_update(expr.update().expect("Expr is Update."))
     } else if expr.is_bin() {
         transpile_bin(expr.bin().expect("Expr is Bin."))
     } else if expr.is_assign() {
@@ -86,6 +86,25 @@ pub fn transpile_expr(expr: swc::Expr) -> Expr {
         todo!("expr invalid")
     } else {
         unreachable!("Unknown expression kind.")
+    }
+}
+
+pub fn transpile_update(update: swc::UpdateExpr) -> Expr {
+    Expr::Binary(ExprBinary {
+        attrs: vec![],
+        left: Box::new(transpile_expr(*update.arg)),
+        op: transpile_update_op(update.op),
+        right: Box::new(Expr::Lit(ExprLit {
+            attrs: vec![],
+            lit: Lit::Int(LitInt::new("1", dummy_span())),
+        })),
+    })
+}
+
+pub fn transpile_update_op(op: swc::UpdateOp) -> BinOp {
+    match op {
+        swc::UpdateOp::PlusPlus => BinOp::AddAssign(token::PlusEq(dummy_span())),
+        swc::UpdateOp::MinusMinus => BinOp::SubAssign(token::MinusEq(dummy_span())),
     }
 }
 

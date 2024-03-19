@@ -8,4 +8,9 @@ fn main() {
     } else {
         console.log("not equal");
     };
+    let mut c = 10;
+    while c >= 0 {
+        console.log(c);
+        c -= 1;
+    }
 }
