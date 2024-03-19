@@ -1,6 +1,6 @@
 # TypeScript to Rust Transpiler
 
-TypeScript to Rust transpiler.
+TypeScript to Rust transpiler. Exploratory project, there is probably no intention to finish it.
 
 ## Features
 
