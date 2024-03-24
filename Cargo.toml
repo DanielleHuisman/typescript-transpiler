@@ -3,8 +3,8 @@ members = ["transpiler", "transpiler-cases", "transpiler-cli", "ts-std"]
 resolver = "2"
 
 [workspace.package]
-authors = ["Nixy <info@nixy.software>"]
+authors = ["Danielle Huisman <danielle@huisman.me>"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/NixySoftware/typescript-transpiler"
+repository = "https://github.com/DanielleHuisman/typescript-transpiler"
 version = "0.1.0"
